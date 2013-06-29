@@ -1,0 +1,184 @@
+-module(recomet_web_fsm).
+-include("recomet.hrl").
+-include("recomet_web.hrl").
+
+-behavior(gen_fsm).
+
+-export([
+        start_link/1, init/1, loop/2,
+        handle_event/3, handle_sync_event/4, 
+        handle_info/3, terminate/3, code_change/4,
+        login/4,waiting_msg/1,waiting_user/1
+    
+    ]).
+
+start_link(Pid) ->
+    gen_fsm:start_link( ?MODULE, Pid, []).
+
+init(Pid) ->
+    process_flag(trap_exit, true),
+    link(Pid),
+    State = #web_state{pid=Pid,type=init,start=get_timestamp()},
+    {ok, loop, State,?FSM_WAIT_TIME}.
+
+loop(#web_event{type=login,message=_Message,params=Params}=Event, State) ->
+    Ctime = get_timestamp(),
+    [Channel,Uid,Type] =  Params,
+
+    recomet:login (self(),Channel,Uid,Type,Ctime),
+
+    State1 = #web_state{
+        pid=State#web_state.pid,
+        type=Event#web_event.type,
+        prev=State#web_state.type,
+        params=Params,
+        start=Ctime
+    },
+
+    {next_state, loop, State1,?FSM_WAIT_TIME};
+
+loop(#web_event{type=waiting_msg,message=_Message,params=_Params}=Event,
+    State) ->
+
+    State1 = #web_state{
+        pid=State#web_state.pid,
+        type=Event#web_event.type,
+        prev=State#web_state.type,
+        params=State#web_state.params,
+        message=State#web_state.message,
+        start=get_timestamp()
+    },
+    %%it should toke long so hibernate
+    proc_lib:hibernate(gen_fsm, enter_loop, [?MODULE, [], loop,State1]);
+ %%   {next_state, loop, State1,?FSM_WAIT_TIME};
+
+loop(#web_event{type=waiting_user,message=_Message,params=_Params}=Event, 
+    State) ->
+    State1 = #web_state{
+        pid=State#web_state.pid,
+        type=Event#web_event.type,
+        prev=State#web_state.type,
+        params=State#web_state.params,
+        message=State#web_state.message,
+        start=get_timestamp()
+    },
+
+    {next_state, loop, State1,?FSM_WAIT_TIME};
+
+
+loop(#web_event{type=logout,message=_Message,params=_Params}=Event, State) ->
+    State1 = #web_state{
+        pid=State#web_state.pid,
+        type=Event#web_event.type,
+        prev=State#web_state.type,
+        params=State#web_state.params,
+        message=State#web_state.message,
+        start=get_timestamp()
+    },
+
+    {stop, normal, State1,?FSM_WAIT_TIME};
+
+loop(#web_event{type=message,message=Message,params=_Params}=Event, State) ->
+    io:format("Message recevied ~p \n", [Message]),
+    State1 = #web_state{pid=State#web_state.pid,
+        type=Event#web_event.type,
+        prev=State#web_state.type,
+        start=get_timestamp(),
+        params=State#web_state.params,
+        message=Message,
+        tick=0},
+
+    {next_state, loop, State1,?FSM_WAIT_TIME};
+
+
+loop(timeout, State) ->
+    State1 = #web_state{pid=State#web_state.pid,
+        type=State#web_state.type,
+        prev=State#web_state.prev,
+        start=State#web_state.start,
+        message=State#web_state.message,
+        params=State#web_state.params,
+        tick=State#web_state.tick+1
+    },
+
+    case State#web_state.type =:= waiting_user
+        andalso State#web_state.tick >= ?FSM_WAIT_USER_TICK of 
+        true ->
+            State#web_state.pid ! ping;
+        false ->
+            ok
+    end,
+    {next_state, loop, State1,?FSM_WAIT_TIME};
+
+
+loop(Event, State) ->
+    io:format("Event ~p, State ~p\n", [Event,State]),
+    {next_state, loop, State,?FSM_WAIT_TIME}.
+
+
+handle_event(stop, _StateName, StateData) ->
+    {stop, normal, StateData};
+
+handle_event(Event, StateName, State) ->
+    io:format("handle_event ~p ~p\n", [Event,StateName]),
+    {next_state, StateName, State}.
+
+code_change(_OldVsn, StateName, State, _Extra) ->
+    {ok, StateName, State}.
+
+handle_sync_event(Event, _From, StateName, State) ->
+    io:format("handle_sync_event ~p  ~p\n", [Event,StateName]),
+    Reply = ok,
+    {reply, Reply, StateName, State}.
+
+handle_info(Info, StateName, State) ->
+    case Info of
+        %%TODO
+        {recomet_message, _} ->
+            Pid = State#web_state.pid,
+            Pid ! Info,
+            State1 = #web_state{
+                pid=State#web_state.pid,
+                type=message,
+                prev=State#web_state.prev,
+                start=get_timestamp(),
+                message=Info,
+                params=State#web_state.params
+            },
+
+            %%State#web_state.pid ! Info,
+            {next_state, StateName, State1, ?FSM_WAIT_TIME};
+        %%TODO 
+        {'EXIT',_Pid,_} ->
+            %% 如果上一次的状态是message 且 时间不超过1s，可以当成没有发送成功，
+            %% 调用recomet:restore  方法
+            {stop, normal, State};
+        _           ->
+            {next_state, StateName, State, ?FSM_WAIT_TIME}
+    end.
+
+
+
+terminate(Reason, StateName, State) ->
+    io:format("\n\n\nterminate ~p ~p ~p\n\n\n", [Reason, StateName, State]),
+    [Channel,Uid,Type] =  State#web_state.params,
+    recomet:logout (self(),Channel,Uid,Type),
+    ok.
+
+get_timestamp() ->
+    {Mega,Sec,Micro} = erlang:now(),
+    (Mega*1000000+Sec)*1000000+Micro.
+
+
+login(Fsm,Channel,Uid,Type) ->
+    gen_fsm:send_event(Fsm, #web_event{type=login,params=[Channel,Uid,Type]}).
+    
+waiting_msg(Fsm) ->
+    gen_fsm:send_event(Fsm, #web_event{type=waiting_msg}).
+
+waiting_user(Fsm) ->
+    gen_fsm:send_event(Fsm, #web_event{type=waiting_user}).
+
+%%send(Fsm,Message) ->
+%%    gen_fsm:send_event(Fsm, #web_event{type=message,message=Message}).
+
