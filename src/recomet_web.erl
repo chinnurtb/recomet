@@ -13,6 +13,7 @@
 -include("recomet_types.hrl").
 -include("recomet_web.hrl").
 
+-spec start() -> any().
 start() ->
     {ok,DocRoot} = application:get_env(docroot),
     {ok,Options} = application:get_env(server_config),
@@ -94,9 +95,13 @@ resume(Req, Id, Reentry,TimerRef,Fsm) ->
         {recomet_message, Msg} ->
             erlang:cancel_timer(TimerRef),
             error_logger:info_msg("recomet_message Msg  ~p~n", [Msg]),
-            %%Json=mochijson2:encode(Msg),
-            %%okJson(Req,Json);
-            okMessage(Req,Msg);
+            case Msg of 
+                ping ->
+                    Json=mochijson2:encode(Msg),
+                    okJson(Req,Json);
+                _   ->
+                    okMessage(Req,Msg)
+            end;
    
         {recomet_messages, Msgs} -> 
             erlang:cancel_timer(TimerRef),
@@ -125,7 +130,7 @@ resume(Req, Id, Reentry,TimerRef,Fsm) ->
 
 
 okMessage(Req,Msgs)  when is_list(Msgs) ->
-    J=[{struct, [{appid, Msg#message.appId},{nick, Msg#message.nick},{type,Msg#message.type},{content,Msg#message.content},{from, Msg#message.from},{to, Msg#message.to}, {created,Msg#message.created}]} || Msg <-Msgs],
+    J=[{struct, [{channel, Msg#message.channel},{nick, Msg#message.nick},{type,Msg#message.type},{content,Msg#message.content},{from, Msg#message.from},{to, Msg#message.to}, {created,Msg#message.created}]} || Msg <-Msgs],
     okJson(Req, mochijson2:encode(J));
 okMessage(Req,Msg)  when is_tuple(Msg) ->
     okMessage(Req,[Msg]).

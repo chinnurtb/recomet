@@ -4,3 +4,7 @@ deps
 *.beam
 *.plt
 rel/recomet/
+
+src/.mod_core.erl.swp
+
+*.swp

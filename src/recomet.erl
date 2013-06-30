@@ -49,7 +49,7 @@ t(Type) ->
         logout ->
             ?MODULE:logout(self(),1,123,1);
         send ->
-            ?MODULE:send(1,123, 1,1);
+            ?MODULE:send(1,123, 1,ping);
         recv -> 
             ?MODULE:recv();
         _ ->

@@ -6,7 +6,8 @@
 
 -include("recomet.hrl").
 
--export([init/2 , start/1,stop/1,handle/4]).
+-export([init/2 , start/1,stop/1,handle/4, get_table_name/2]).
+
 -record(userpid, {pid, uid, channel, type, ctime, partition}).
 -record(piduser, {pid, uid, channel, type, ctime, partition}).
 

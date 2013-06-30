@@ -104,7 +104,7 @@ loop(timeout, State) ->
     case State#web_state.type =:= waiting_user
         andalso State#web_state.tick >= ?FSM_WAIT_USER_TICK of 
         true ->
-            State#web_state.pid ! ping;
+            State#web_state.pid ! #message{type=ping};
         false ->
             ok
     end,
@@ -149,11 +149,26 @@ handle_info(Info, StateName, State) ->
             %%State#web_state.pid ! Info,
             {next_state, StateName, State1, ?FSM_WAIT_TIME};
         %%TODO 
-        {'EXIT',_Pid,_} ->
+        {'EXIT',Pid,_} ->
+            case State#web_state.pid =:= Pid of 
+                true ->
+                    case State#web_state.type =:= message
+                        andalso 
+                        get_timestamp()- State#web_state.start < ?FSM_RESTORE_TIME of
+                        true ->
+                            io:format("EXI State is ~p,\n Pid is ~p\n", [State , State#web_state.pid =:= Pid]),
+                            ok;
+                        false ->
+                            ok
+                    end,
+                    {stop, normal, State};
+                false ->
+                    %% 其他进程退出
+                    {next_state, StateName, State, ?FSM_WAIT_TIME}
+            end;
             %% 如果上一次的状态是message 且 时间不超过1s，可以当成没有发送成功，
             %% 调用recomet:restore  方法
-            {stop, normal, State};
-        _           ->
+            _           ->
             {next_state, StateName, State, ?FSM_WAIT_TIME}
     end.
 

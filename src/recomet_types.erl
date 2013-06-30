@@ -25,7 +25,7 @@ struct_info('message') ->
 struct_info('i am a dummy struct') -> undefined.
 
 struct_info_ext('message') ->
-  {struct, [{1, undefined, i32, 'appId', undefined},
+  {struct, [{1, undefined, i32, 'channel', undefined},
           {2, undefined, i64, 'from', undefined},
           {3, undefined, i64, 'to', undefined},
           {4, undefined, string, 'nick', ""},

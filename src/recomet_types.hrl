@@ -3,7 +3,7 @@
 
 %% struct message
 
--record(message, {appId :: integer(),
+-record(message, {channel :: integer(),
                   from :: integer(),
                   to :: integer(),
                   nick = "" :: string() | binary(),

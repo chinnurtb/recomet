@@ -3,7 +3,7 @@ namespace java com.etao.recomet
 namespace php  com.etao.recomet
 
 struct Message {
-       1: i32 appId,
+       1: i32 channel,
        2: i64 from,
        3: i64 to,
        4: string nick="",
