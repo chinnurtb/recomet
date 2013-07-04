@@ -1,6 +1,7 @@
 -module(recomet_vnode).
 -behaviour(riak_core_vnode).
 -include("recomet.hrl").
+-include_lib ("riak_core/include/riak_core_vnode.hrl").
 
 -export([start_vnode/1,
          init/1,
@@ -32,14 +33,23 @@ handle_command(ping, _Sender, State) ->
 
 handle_command(Command, Sender, State) ->
     Res = {noreply, State},
-    io:format(" handle_command ~p \n",[State]),
     {_State1,_Command1,Res1} = recomet_module:handle(Command,Sender,State,Res),
     Res1.
 
-handle_handoff_command(_Message, _Sender, State) ->
-    {noreply, State}.
 
-handoff_starting(_TargetNode, State) ->
+handle_handoff_command(?FOLD_REQ{foldfun=Fun, acc0=Acc0}, Sender, State) ->
+    %%Acc = dict:fold(Fun, Acc0, State#recomet_state.stats),
+    io:format("foldfun ~p, acc0 ~p Send ~p, State ~p \n", [Fun , Acc0 ,Sender,State]),
+    %%{reply, Acc, State};
+    {noreply, State};
+handle_handoff_command(Message, Sender, State) ->
+    io:format("Message ~p, Send ~p, State ~p \n", [Message,Sender,State]),
+    handoff_command(Message,Sender,State).
+    %%{forward, State}.
+    %%{noreply, State}.
+
+handoff_starting(TargetNode, State) ->
+    io:format("handoff starting ~p ~p\n",[TargetNode,State]),
     {true, State}.
 
 handoff_cancelled(State) ->
@@ -48,14 +58,18 @@ handoff_cancelled(State) ->
 handoff_finished(_TargetNode, State) ->
     {ok, State}.
 
-handle_handoff_data(_Data, State) ->
+handle_handoff_data(Data, State) ->
+    io:format("handoff item ~p ~p\n",[Data,State]),
     {reply, ok, State}.
 
-encode_handoff_item(_ObjectName, _ObjectValue) ->
+encode_handoff_item(ObjectName, ObjectValue) ->
+    io:format("handoff item ~p ~p\n",[ObjectName,ObjectValue]),
     <<>>.
 
 is_empty(State) ->
-    {true, State}.
+    io:format("handoff is_empty ~p\n",[recomet_module:is_empty(State)]),
+    recomet_module:is_empty(State).
+    %%{true, State}.
 
 delete(State) ->
     {ok, State}.

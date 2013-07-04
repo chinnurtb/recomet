@@ -3,17 +3,20 @@
 -author('zhangjiayin99@gmail.com').
 
 -export([
-        init/2,start/1, stop/1, handle/4,
+        init/2,start/1, stop/1, handle/4,is_empty/1,
         init_module/3,
         start_module/2,
         handle_module/5,
+        is_empty_module/2,
         get_option/2
     ]).  
 
 -export([behaviour_info/1]). 
 
 behaviour_info(callbacks) ->
-    [{init, 2},{start, 1}, {stop, 1}, {handle, 4}];
+    [
+        {init, 2},{start, 1}, {stop, 1}, {handle, 4}, {is_empty,1}
+    ];
 
 behaviour_info(_Other) ->  
     undefined.  
@@ -32,6 +35,11 @@ init(P,State) ->
 handle(Command,From,State,Res) ->
     {ok, Mods } = application:get_env(recomet,modules),
     handle_module(Mods,Command,From,State,Res).
+
+is_empty(State) ->
+    {ok, Mods } = application:get_env(recomet,modules),
+    is_empty_module(Mods, State).
+
 
 stop(_) ->  
     stop.   
@@ -58,6 +66,21 @@ init_module([],_P,State) ->
     {ok,State};
 init_module(Mod, P,State) ->
     Mod:init(P,State).
+
+is_empty_module([Mod|Mods],State) ->
+    {IsEmpty,State1} = is_empty_module(Mod,State),
+    case IsEmpty of 
+        false -> 
+            {IsEmpty,State1};
+        _   ->
+            is_empty_module(Mods,State1)
+    end;
+is_empty_module([],State) ->
+    {true,State};
+is_empty_module(Mod,State) ->
+    Mod:is_empty(State).
+
+
 
 start_module([Mod|Mods],P) ->
     R = start_module(Mod,P),

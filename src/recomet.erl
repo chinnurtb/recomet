@@ -3,7 +3,7 @@
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
 -export([
-        ping/0, login/5,logout/4,send/4,t/1,recv/0
+        ping/0, login/5,logout/4,send/4,t/1,recv/0,for/3
         ]).
 
 %% Public API
@@ -45,7 +45,7 @@ recv() ->
 t(Type) ->
     case Type of
         login ->
-            ?MODULE:login(self(),1,123,1,1);
+            for(1,10000,fun(I) -> io:format("I, ~p\n",[I]),?MODULE:login(self(),1,I,1,1) end);
         logout ->
             ?MODULE:logout(self(),1,123,1);
         send ->
@@ -55,3 +55,10 @@ t(Type) ->
         _ ->
             ok
     end.
+
+
+for(Max,Max,F) -> 
+    F(Max);
+for(I,Max,F)  -> 
+    F(I),
+    for(I+1,Max,F).

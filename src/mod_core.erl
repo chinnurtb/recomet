@@ -6,7 +6,7 @@
 
 -include("recomet.hrl").
 
--export([init/2 , start/1,stop/1,handle/4, get_table_name/2]).
+-export([init/2 , start/1,stop/1,handle/4, get_table_name/2, is_empty/1]).
 
 -record(userpid, {pid, uid, channel, type, ctime, partition}).
 -record(piduser, {pid, uid, channel, type, ctime, partition}).
@@ -37,7 +37,7 @@ handle({send,Channel,Uid,Type,Message}=Command,_From, State,_Res) ->
     Tu = get_table_name("userpid", State#recomet_state.partition),
 
     Pids = [ Pid || [Pid]<- ets:match(Tu,#userpid{pid='$1',channel=Channel,uid=Uid,type=Type,_='_'})],
-    io:format("send to pids     ~p\n ", [Pids]),
+    error_logger:info_msg("send to pids     ~p\n ", [Pids]),
     M = {recomet_message, Message},
     [ Pid ! M || Pid <- Pids ],
     {State,Command,{reply,ok,State}};
@@ -46,8 +46,8 @@ handle({logout,Pid,Channel,Uid,Type}=Command,_From, State,_Res) ->
     Tp = get_table_name("piduser", State#recomet_state.partition),
     Tu = get_table_name("userpid", State#recomet_state.partition),
     PidRows = ets:match_object(Tp,#piduser{pid=Pid,channel=Channel,uid=Uid,type=Type,_='_'}),
-    io:format("logout Command~p\n", [Command]),
-    io:format("logout, PidRows~p \n", [PidRows]),
+    error_logger:info_msg("logout Command~p\n", [Command]),
+    error_logger:info_msg("logout, PidRows~p \n", [PidRows]),
     case PidRows of
         [] ->
             ok;
@@ -61,5 +61,9 @@ handle({logout,Pid,Channel,Uid,Type}=Command,_From, State,_Res) ->
 handle(Command,_Sender,State,Res) ->
     {State,Command, Res}.
 
+is_empty(State) ->
+    Tp = get_table_name("piduser", State#recomet_state.partition),
+    error_log:info_msg("~p size is ~p", [Tp,ets:info(Tp,size)]),
+    {ets:info(Tp,size) =:=0 ,State}.
 get_table_name(Pre,P )->
     list_to_atom(Pre ++ "_"  ++ integer_to_list(P)).
