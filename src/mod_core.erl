@@ -53,6 +53,27 @@ handle({send,Channel,Uid,Type,Message}=Command,_From, State,_Res) ->
     [ Pid ! M || Pid <- Pids ],
     {State,Command,{reply,ok,State}};
 
+handle({is_online,Channel,Uid,Type}=Command,_From, State,_Res) when is_integer (Uid) ->
+    Tu = get_table_name("userpid", State#recomet_state.partition),
+    Ret = [ {C,U,T} ||  {piduser,_P,U,C,T,_Ct} <- ets:match_object(Tu,#piduser{channel=Channel,uid=Uid,type=Type,_='_'})],
+    error_logger:info_msg("is_online ret is  ~p\n ", [Ret]),
+    {State,Command,{reply,Ret,State}};
+
+handle({is_online,Channel,Uid,Type}=Command,_From, State,_Res) when is_list (Uid) ->
+    Tu = get_table_name("userpid", State#recomet_state.partition),
+
+    Ret = lists:foldl(fun(U1,R)-> 
+        Tr = [{C,U,T} ||  {piduser,_P,U,C,T,_Ct} <- ets:match_object(Tu,#piduser{channel=Channel,uid=U1,type=Type,_='_'})],
+        case Tr of 
+           [ {C, U, T } ] ->
+             [{C,U,T}|R];
+            []  ->
+                R
+        end
+    end,[],Uid),
+    {State,Command,{reply,Ret,State}};
+
+
 handle({logout,Pid,Channel,Uid,Type}=Command,_From, State,_Res) ->
     Tp = get_table_name("piduser", State#recomet_state.partition),
     Tu = get_table_name("userpid", State#recomet_state.partition),
