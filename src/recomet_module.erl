@@ -2,20 +2,31 @@
 
 -author('zhangjiayin99@gmail.com').
 
+-include ("recomet.hrl").
+
 -export([
         init/2,start/1, stop/1, handle/4,is_empty/1,
+        handle_handoff_command/4,
         init_module/3,
         start_module/2,
         handle_module/5,
         is_empty_module/2,
+        handle_handoff_data/2,
         get_option/2
     ]).  
 
 -export([behaviour_info/1]). 
 
+
 behaviour_info(callbacks) ->
     [
-        {init, 2},{start, 1}, {stop, 1}, {handle, 4}, {is_empty,1}
+        {init, 2},
+        {start, 1}, 
+        {stop, 1},
+        {handle, 4}, 
+        {is_empty,1},
+        {handle_handoff_command,4},
+        {handle_handoff_data,2}
     ];
 
 behaviour_info(_Other) ->  
@@ -26,10 +37,12 @@ start(P) ->
     {ok, Mods } = application:get_env(recomet,modules),
     start_module(Mods,P).
 
-%%-spec start (arity()) -> {ok, #recomet_state}.
+-spec stop (arity()) -> {list(), arity(), #recomet_state{}}.
 init(P,State) ->
     {ok, Mods } = application:get_env(recomet,modules),
     init_module(Mods,P,State).
+
+
 
 %%-spec handler (tuple(),any(),#recomet_state) -> {reply,any(), #recomet_state} | {noreply, #recomet_state}.
 handle(Command,From,State,Res) ->
@@ -43,6 +56,27 @@ is_empty(State) ->
 
 stop(_) ->  
     stop.   
+
+handle_handoff_data(Object,State) ->
+    %%{ok, Mods } = application:get_env(recomet,modules),
+    {Mod,Data} = binary_to_term(Object),
+    Mod:handle_handoff_data(Data,State).
+    %%handle_handoff_command_module(Mods,Req,Sender,State,Acc0).
+
+
+handle_handoff_command(Req, Sender, State,Acc0) ->
+    {ok, Mods } = application:get_env(recomet,modules),
+    handle_handoff_command_module(Mods,Req,Sender,State,Acc0).
+
+handle_handoff_command_module([Mod|Mods],Req,Sender,State,Acc0) ->
+    {Acc1,State1} = handle_handoff_command_module(Mod,Req,Sender,State,Acc0),
+    handle_handoff_command_module(Mods,Req,Sender,State1,Acc1);
+handle_handoff_command_module([],_Req,_Sender,State,Acc0) ->
+    {Acc0,State};
+handle_handoff_command_module(Mod,Req,Sender,State,Acc0) ->
+    Mod:handle_handoff_command(Req,Sender,State,Acc0).
+
+
 
 
 handle_module([Mod|Mods],Command,Sender,State,Res) ->

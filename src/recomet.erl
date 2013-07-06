@@ -45,7 +45,8 @@ recv() ->
 t(Type) ->
     case Type of
         login ->
-            for(1,10000,fun(I) -> io:format("I, ~p\n",[I]),?MODULE:login(self(),1,I,1,1) end);
+            for(1,10000,fun(I) -> ?MODULE:login(self(),1,I,1,1) end),
+            io:format("I, ~p done\n ",[10000]);
         logout ->
             ?MODULE:logout(self(),1,123,1);
         send ->

@@ -37,15 +37,17 @@ handle_command(Command, Sender, State) ->
     Res1.
 
 
-handle_handoff_command(?FOLD_REQ{foldfun=Fun, acc0=Acc0}, Sender, State) ->
+handle_handoff_command(Req=?FOLD_REQ{acc0=Acc0}, Sender, State) ->
     %%Acc = dict:fold(Fun, Acc0, State#recomet_state.stats),
-    io:format("foldfun ~p, acc0 ~p Send ~p, State ~p \n", [Fun , Acc0 ,Sender,State]),
-    %%{reply, Acc, State};
-    {noreply, State};
-handle_handoff_command(Message, Sender, State) ->
-    io:format("Message ~p, Send ~p, State ~p \n", [Message,Sender,State]),
-    handoff_command(Message,Sender,State).
-    %%{forward, State}.
+    {Acc1, NewState}= recomet_module:handle_handoff_command(Req,Sender,State,Acc0),
+    io:format("Req ~p, Sender ~p, State ~p \n", [Req ,Sender,State]),
+    {reply, Acc1, NewState};
+    %%{noreply, State};
+handle_handoff_command(_Message, _Sender, State) ->
+    %%io:format("Message ~p, Send ~p, State ~p \n", [Message,Sender,State]),
+    %%handle_command(Message,Sender,State).
+    %%TODO forward after handle_command handdof in state
+    {forward, State}.
     %%{noreply, State}.
 
 handoff_starting(TargetNode, State) ->
@@ -59,12 +61,14 @@ handoff_finished(_TargetNode, State) ->
     {ok, State}.
 
 handle_handoff_data(Data, State) ->
-    io:format("handoff item ~p ~p\n",[Data,State]),
+    %%io:format("handoff data item ~p ~p\n",[binary_to_term(Data),State]),
+    recomet_module:handle_handoff_data(Data,State),
     {reply, ok, State}.
 
 encode_handoff_item(ObjectName, ObjectValue) ->
-    io:format("handoff item ~p ~p\n",[ObjectName,ObjectValue]),
-    <<>>.
+    %%io:format("encode handoff item ~p ~p\n",[ObjectName,ObjectValue]),
+    term_to_binary({ObjectName,ObjectValue}).
+
 
 is_empty(State) ->
     io:format("handoff is_empty ~p\n",[recomet_module:is_empty(State)]),
