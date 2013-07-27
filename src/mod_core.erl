@@ -8,10 +8,10 @@
 -include_lib ("riak_core/include/riak_core_vnode.hrl").
 
 -export([
-    init/2 , 
+    init/2 ,
     start/1 ,
     stop/1 ,
-    handle/4 , 
+    handle/4 ,
     get_table_name/2 ,
     is_empty/1 ,
     handle_handoff_data/2,
@@ -22,7 +22,7 @@
 %%-record(userpid, {pid, uid, channel, type, ctime, partition}).
 -record(piduser, {pid, uid, channel, type, ctime}).
 
-init(P,State) -> 
+init(P,State) ->
     ets:new(list_to_atom("userpid" ++ "_"  ++integer_to_list(P) ), [public, bag, named_table,{keypos, #piduser.uid}]),
     ets:new(list_to_atom("piduser" ++ "_"  ++integer_to_list(P) ), [public, bag, named_table,{keypos, #piduser.pid}]),
     case recomet_module:get_option(?MODULE, State#recomet_state.modules) of
@@ -33,10 +33,10 @@ init(P,State) ->
     end,
     {ok,State1}.
 
-stop(_) -> 
+stop(_) ->
     ok.
 
-start(P) -> 
+start(P) ->
     {ok,P}.
 
 handle({login, Pid, Channel, Uid, Type, Ctime}=Command, _From, State,_Res) ->
@@ -62,9 +62,9 @@ handle({is_online,Channel,Uid,Type}=Command,_From, State,_Res) when is_integer (
 handle({is_online,Channel,Uid,Type}=Command,_From, State,_Res) when is_list (Uid) ->
     Tu = get_table_name("userpid", State#recomet_state.partition),
 
-    Ret = lists:foldl(fun(U1,R)-> 
+    Ret = lists:foldl(fun(U1,R)->
         Tr = [{C,U,T} ||  {piduser,_P,U,C,T,_Ct} <- ets:match_object(Tu,#piduser{channel=Channel,uid=U1,type=Type,_='_'})],
-        case Tr of 
+        case Tr of
            [ {C, U, T } ] ->
              [{C,U,T}|R];
             []  ->
@@ -84,7 +84,7 @@ handle({logout,Pid,Channel,Uid,Type}=Command,_From, State,_Res) ->
         [] ->
             ok;
         _ ->
-            IdRows = [{piduser,P,U,C,T,Ct} || {piduser,P,U,C,T,Ct} <- PidRows ], 
+            IdRows = [{piduser,P,U,C,T,Ct} || {piduser,P,U,C,T,Ct} <- PidRows ],
             ets:delete(Tp, Pid),
             [ ets:delete_object(Tu, Obj) || Obj <- IdRows ]
     end,
@@ -110,7 +110,7 @@ handle_handoff_command(_Req, _Sender,State) ->
     {ok,State}.
 
 iterate_table(T,Fun,Prev,Acc) ->
-    case Prev of 
+    case Prev of
         []  ->
             Res = ets:first(T);
         _   ->
@@ -126,7 +126,7 @@ iterate_table(T,Fun,Prev,Acc) ->
             Acc1 = Fun(ets:lookup(T,Res),Acc),
             iterate_table(T,Fun,Res,Acc1)
     end.
-            
+
 
 
 is_empty(State) ->

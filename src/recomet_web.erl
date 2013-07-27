@@ -39,7 +39,7 @@ loop(Req, DocRoot,Keepalive) ->
                 case Path of
                     "longpoll/" ++ Id     ->
                         Fsm = get_web_fsm(self()),
-                        case Keepalive of 
+                        case Keepalive of
                             nonekeepalive->
                                 recomet_web_fsm:login(Fsm,1,list_to_integer(Id),1);
                             _   ->
@@ -49,6 +49,35 @@ loop(Req, DocRoot,Keepalive) ->
                         Reentry = mochiweb_http:reentry({?MODULE, loop,[DocRoot,keepalive]}),
                         recomet_web_fsm:waiting_msg(Fsm),
                         proc_lib:hibernate(?MODULE, resume, [Req,Id, Reentry, TimerRef,Fsm]);
+
+                    "healthy/"           ->
+                        Json=mochijson2:encode(healthy()),
+                        okJson(Req, Json);
+
+                    "send/" ++ Appid           ->
+                        %just for a test protocol implement
+                        Qs = Req:parse_qs(),
+                        Id = proplists:get_value("uid",Qs,""),
+                        Content = proplists:get_value("content",Qs,""),
+                        %another check request validation, maybe just check the source ip
+                     %%   Ip = Req:get(peer),
+                    %%   case auth_util:check_ip(Ip) of
+                    %%       true  ->
+                            %%  case forward_protocol:process(message,Qs) of
+                            %%      {ok,Reply}  ->
+                                       %%rpc:call(node(pg2:get_closest_pid(erouter)),ecomet_router, send,[list_to_integer(Appid),list_to_integer(Id),Reply]),
+                                       Message = #message{channel = list_to_binary(Appid),content=list_to_binary(Content)},
+                                       recomet:send(list_to_integer(Appid),list_to_integer(Id),1,Message) ,
+                                       Json=mochijson2:encode({struct, [{result,0}]}),
+                                       okJson(Req,Json);
+                                 %%  _ ->
+                                  %%     Json=mochijson2:encode({struct, [{result,-1},{msg,<<"">>}]}),
+                                  %%     okJson(Req,Json)
+                               %%end;
+                    %%       false   ->
+                    %%           Json=mochijson2:encode({struct, [{result,-4},{msg,<<"ip not allowed">>}]}),
+                    %%           okJson(Req,Json)
+                    %%   end;
                     _ ->
                         error_logger:info_msg("DocRoot ~p\n", [DocRoot]),
                         Req:serve_file(Path, DocRoot)
@@ -61,7 +90,7 @@ loop(Req, DocRoot,Keepalive) ->
                         Args = Req:parse_post(),
                         Id  = proplists:get_value("uid", Args, ""),
                         %% keepalive 的时候是已经登陆过的了
-                        case Keepalive of 
+                        case Keepalive of
                             nonekeepalive->
                                 recomet_web_fsm:login(Fsm,list_to_integer(Channel),list_to_integer(Id),1);
                                 _   ->
@@ -95,15 +124,15 @@ resume(Req, Id, Reentry,TimerRef,Fsm) ->
         {recomet_message, Msg} ->
             erlang:cancel_timer(TimerRef),
             error_logger:info_msg("recomet_message Msg  ~p~n", [Msg]),
-            case Msg of 
+            case Msg of
                 ping ->
                     Json=mochijson2:encode(Msg),
                     okJson(Req,Json);
                 _   ->
                     okMessage(Req,Msg)
             end;
-   
-        {recomet_messages, Msgs} -> 
+
+        {recomet_messages, Msgs} ->
             erlang:cancel_timer(TimerRef),
             error_logger:info_msg("recomet_messages Msgs  ~p~n", [Msgs]),
             okMessage(Req,Msgs);
@@ -155,3 +184,11 @@ get_web_fsm(Pid) ->
         [{Pid,Fsm_pid}] ->
             Fsm_pid
     end.
+
+healthy () ->
+    [
+        {process_count,erlang:system_info(process_count)},
+        {cpu,erlang:system_info(cpu_topology)},
+        {memory, erlang:memory()},
+        {nodes, nodes()}
+    ].

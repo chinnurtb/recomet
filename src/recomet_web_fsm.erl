@@ -6,10 +6,10 @@
 
 -export([
         start_link/1, init/1, loop/2,
-        handle_event/3, handle_sync_event/4, 
+        handle_event/3, handle_sync_event/4,
         handle_info/3, terminate/3, code_change/4,
         login/4,waiting_msg/1,waiting_user/1
-    
+
     ]).
 
 start_link(Pid) ->
@@ -52,7 +52,7 @@ loop(#web_event{type=waiting_msg,message=_Message,params=_Params}=Event,
     proc_lib:hibernate(gen_fsm, enter_loop, [?MODULE, [], loop,State1]);
  %%   {next_state, loop, State1,?FSM_WAIT_TIME};
 
-loop(#web_event{type=waiting_user,message=_Message,params=_Params}=Event, 
+loop(#web_event{type=waiting_user,message=_Message,params=_Params}=Event,
     State) ->
     State1 = #web_state{
         pid=State#web_state.pid,
@@ -102,7 +102,7 @@ loop(timeout, State) ->
     },
 
     case State#web_state.type =:= waiting_user
-        andalso State#web_state.tick >= ?FSM_WAIT_USER_TICK of 
+        andalso State#web_state.tick >= ?FSM_WAIT_USER_TICK of
         true ->
             State#web_state.pid ! #message{type=ping};
         false ->
@@ -148,12 +148,12 @@ handle_info(Info, StateName, State) ->
 
             %%State#web_state.pid ! Info,
             {next_state, StateName, State1, ?FSM_WAIT_TIME};
-        %%TODO 
+        %%TODO
         {'EXIT',Pid,_} ->
-            case State#web_state.pid =:= Pid of 
+            case State#web_state.pid =:= Pid of
                 true ->
                     case State#web_state.type =:= message
-                        andalso 
+                        andalso
                         get_timestamp()- State#web_state.start < ?FSM_RESTORE_TIME of
                         true ->
                             io:format("EXI State is ~p,\n Pid is ~p\n", [State , State#web_state.pid =:= Pid]),
@@ -177,6 +177,7 @@ handle_info(Info, StateName, State) ->
 terminate(Reason, StateName, State) ->
     io:format("\n\n\nterminate ~p ~p ~p\n\n\n", [Reason, StateName, State]),
     [Channel,Uid,Type] =  State#web_state.params,
+    ets:delete(?WEBFSMTABLE,State#web_state.pid),
     recomet:logout (self(),Channel,Uid,Type),
     ok.
 
@@ -187,7 +188,7 @@ get_timestamp() ->
 
 login(Fsm,Channel,Uid,Type) ->
     gen_fsm:send_event(Fsm, #web_event{type=login,params=[Channel,Uid,Type]}).
-    
+
 waiting_msg(Fsm) ->
     gen_fsm:send_event(Fsm, #web_event{type=waiting_msg}).
 

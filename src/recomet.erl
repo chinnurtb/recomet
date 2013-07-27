@@ -17,11 +17,11 @@ ping() ->
     riak_core_vnode_master:sync_spawn_command(IndexNode, ping, recomet_vnode_master).
 
 
-logout (Pid,Channel,Uid,Type) -> 
+logout (Pid,Channel,Uid,Type) ->
     riak_core_vnode_master:sync_spawn_command(get_pri_node(Channel,Uid), {logout, Pid,Channel,Uid,Type}, recomet_vnode_master),
     ok.
 
-send (Channel,Uid,Type,Message) -> 
+send (Channel,Uid,Type,Message) ->
     riak_core_vnode_master:sync_spawn_command(get_pri_node(Channel,Uid), {send, Channel,Uid,Type,Message}, recomet_vnode_master),
     ok.
 
@@ -37,7 +37,7 @@ is_online(Channel,Uid1,Type) when is_list(Uid1)->
 is_online(Channel,Uid,Type ) when is_integer(Uid) ->
     riak_core_vnode_master:sync_spawn_command(get_pri_node(Channel,Uid), {is_online, Channel,Uid,Type}, recomet_vnode_master).
 
-login (Pid,Channel,Uid,Type,Ctime) -> 
+login (Pid,Channel,Uid,Type,Ctime) ->
      IndexNode = get_pri_node(Channel,Uid),
     riak_core_vnode_master:sync_spawn_command(IndexNode, {login, Pid,Channel,Uid,Type, Ctime}, recomet_vnode_master),
     ok.
@@ -46,7 +46,7 @@ get_pri_nodes(_Channel,[],Res) ->
     Res;
 get_pri_nodes(Channel,[Uid|Others],Res) ->
     IndexNode = get_pri_node(Channel,Uid),
-    case proplists:get_value(IndexNode,Res) of 
+    case proplists:get_value(IndexNode,Res) of
         undefined ->
             Res1 = [{IndexNode,[Uid]}|Res];
         Us        ->
@@ -57,13 +57,16 @@ get_pri_nodes(Channel,[Uid|Others],Res) ->
 
 
 get_pri_node(Channel,Uid) ->
-    DocIdx = riak_core_util:chash_key({integer_to_binary(Channel), integer_to_binary(Uid)}),
+    %% FOR erl16B
+    %%DocIdx = riak_core_util:chash_key({integer_to_binary(Channel), integer_to_binary(Uid)}),
+    %%FOR erl15B
+    DocIdx = riak_core_util:chash_key({binary:encode_unsigned(Channel), binary:encode_unsigned(Uid)}),
     PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, recomet),
     [{IndexNode, _Type}] = PrefList,
     IndexNode.
 
 recv() ->
-    receive 
+    receive
         M ->
             io:format("Receive Message ~p", [M])
     after 1000 ->
@@ -80,15 +83,15 @@ t(Type) ->
             ?MODULE:send(1,123, 1,ping);
         is_online ->
             ?MODULE:for(1,10000,fun(I)-> io:format("~p is_online ~p\n", [I,recomet:is_online(1,I,1)]) end);
-        recv -> 
+        recv ->
             ?MODULE:recv();
         _ ->
             ok
     end.
 
 
-for(Max,Max,F) -> 
+for(Max,Max,F) ->
     F(Max);
-for(I,Max,F)  -> 
+for(I,Max,F)  ->
     F(I),
     for(I+1,Max,F).

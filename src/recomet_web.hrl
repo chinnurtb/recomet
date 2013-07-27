@@ -11,16 +11,16 @@
 -type web_fsm_type() :: login | message |logout |waiting_msg |waiting_user.
 
 -record(web_event, {
-        type        :: web_fsm_type ,      
-        message     :: #message{}   ,  
+        type        :: web_fsm_type ,
+        message     :: #message{}   ,
         params      :: [integer()]
     }).
 
 -record(web_state , {
-        pid         :: pid()        ,   
+        pid         :: pid()        ,
         type        :: web_fsm_type ,
-        prev        :: web_fsm_type , 
-        message     :: #message{}    , 
+        prev        :: web_fsm_type ,
+        message     :: #message{}    ,
         tick=0      :: integer()    ,
         params      :: [integer(),...],
         start       :: integer()
