@@ -1,4 +1,4 @@
-recomet: A Riak Core Application for  http longpolling application
+recomet: A http longpolling application with riak_core
 ======================================
  
  TODO
