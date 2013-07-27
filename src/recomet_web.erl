@@ -53,8 +53,10 @@ loop(Req, DocRoot,Keepalive) ->
                         proc_lib:hibernate(?MODULE, resume, [Req,Id, Reentry, TimerRef,Fsm]);
 
                     "healthy/"           ->
-                        Json=mochijson2:encode(healthy()),
-                        okJson(Req, Json);
+                        StatList = get_basic_statistics()
+                        ++ get_memory_statistics(),
+                        String = encode_statistics_json(StatList),
+                        okJson(Req, String);
 
                     "send/" ++ Channel ->
                         %just for a test protocol implement
@@ -172,10 +174,36 @@ get_web_fsm(Pid) ->
             Fsm_pid
     end.
 
-healthy () ->
+get_basic_statistics() -> % general statistics.
+    {MegaSecs, Secs, _} = now(),
+    Epoch = MegaSecs * 1000000 + Secs,
+    {ContextSwitches, 0} = statistics(context_switches),
+    {{input, Input}, {output, Output}} = statistics(io),
+    RunningQueue = statistics(run_queue),
+    KernelPoll = erlang:system_info(kernel_poll),
+    ProcessCount = erlang:system_info(process_count),
+    ProcessLimit = erlang:system_info(process_limit),
+    Nodes = length(nodes()) + 1, % other nodes plus our own node
+    Ports = length(erlang:ports()),
+    ModulesLoaded = length(code:all_loaded()),
     [
-        {process_count,erlang:system_info(process_count)},
-        {cpu,erlang:system_info(cpu_topology)},
-        {memory, erlang:memory()},
-        {nodes, nodes()}
+        {<<"date">>, Epoch}, {<<"context_switches">>, ContextSwitches}, {<<"input">>, Input}, {<<"output">>, Output},
+        {<<"running_queue">>, RunningQueue}, {<<"kernel_poll">>, KernelPoll}, {<<"process_count">>, ProcessCount},
+        {<<"process_limit">>, ProcessLimit}, {<<"nodes">>, Nodes}, {<<"ports">>, Ports}, {<<"modules_loaded">>, ModulesLoaded}
     ].
+
+get_memory_statistics() -> % memory statistics.
+    MemoryUsage = erlang:memory(),
+    JsonObjectMemoryUsage = {struct, lists:map(
+            fun({A, B}) ->
+                    {list_to_binary(atom_to_list(A)), B}
+            end,
+            MemoryUsage)},
+    {GarbageCollections, _, 0} = statistics(garbage_collection),
+    [{<<"memory_usage">>, JsonObjectMemoryUsage}, {<<"garbage_collections">>, GarbageCollections}].
+
+encode_statistics_json(StatList) ->
+    JsonObj = {struct, StatList},
+    json(JsonObj).
+
+json(Param) -> (mochijson2:encoder([{utf8, true}]))(Param).
