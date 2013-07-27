@@ -110,22 +110,44 @@ handle_handoff_command(_Req, _Sender,State) ->
     {ok,State}.
 
 iterate_table(T,Fun,Prev,Acc) ->
-    case Prev of
-        []  ->
-            Res = ets:first(T);
-        _   ->
-            Res = ets:next(T,Prev)
-    end,
+  case Prev of
+      []  ->
+          Res = ets:first(T);
+      _   ->
+          Res = ets:next(T,Prev)
+  end,
 
-    case Res of
-        []  ->
-            Acc;
-        '$end_of_table' ->
-            Acc;
-        _   ->
-            Acc1 = Fun(ets:lookup(T,Res),Acc),
-            iterate_table(T,Fun,Res,Acc1)
-    end.
+  case Res of
+      []  ->
+          Acc;
+      '$end_of_table' ->
+          Acc;
+      _   ->
+          %%Acc1 = Fun(ets:lookup(T,Res),Acc),
+          {piduser,P,U,C,T,_Ct} = Res,
+          M = {recomet_relogin, P, C, U, T},
+          P ! M ,
+          iterate_table(T,Fun,Res,Acc)
+  end.
+
+%%FOR data handoff
+%%iterate_table(T,Fun,Prev,Acc) ->
+%%  case Prev of
+%%      []  ->
+%%          Res = ets:first(T);
+%%      _   ->
+%%          Res = ets:next(T,Prev)
+%%  end,
+%%
+%%  case Res of
+%%      []  ->
+%%          Acc;
+%%      '$end_of_table' ->
+%%          Acc;
+%%      _   ->
+%%          Acc1 = Fun(ets:lookup(T,Res),Acc),
+%%          iterate_table(T,Fun,Res,Acc1)
+%%  end.
 
 
 

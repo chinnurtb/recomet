@@ -149,6 +149,20 @@ handle_info(Info, StateName, State) ->
             %%State#web_state.pid ! Info,
             {next_state, StateName, State1, ?FSM_WAIT_TIME};
         %%TODO
+        {recomet_relogin, _Pid, Channel, Uid, Type} ->
+
+            Ctime = get_timestamp(),
+            Params = [Channel,Uid,Type] ,
+            recomet:login (self(),Channel,Uid,Type,Ctime),
+            State1 = #web_state{
+                pid=State#web_state.pid,
+                type=login,
+                prev=State#web_state.type,
+                params=Params,
+                start=Ctime
+            },
+
+            {next_state, StateName, State1, ?FSM_WAIT_TIME};
         {'EXIT',Pid,_} ->
             case State#web_state.pid =:= Pid of
                 true ->

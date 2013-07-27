@@ -37,11 +37,13 @@ loop(Req, DocRoot,Keepalive) ->
         case Req:get(method) of
             Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                 case Path of
-                    "longpoll/" ++ Id     ->
+                    "longpoll/" ++ Channel     ->
+                        Qs = Req:parse_qs(),
+                        Id = proplists:get_value("uid",Qs,""),
                         Fsm = get_web_fsm(self()),
                         case Keepalive of
                             nonekeepalive->
-                                recomet_web_fsm:login(Fsm,1,list_to_integer(Id),1);
+                                recomet_web_fsm:login(Fsm,list_to_integer(Channel),list_to_integer(Id),1);
                             _   ->
                                 ok
                         end,
@@ -54,30 +56,15 @@ loop(Req, DocRoot,Keepalive) ->
                         Json=mochijson2:encode(healthy()),
                         okJson(Req, Json);
 
-                    "send/" ++ Appid           ->
+                    "send/" ++ Channel ->
                         %just for a test protocol implement
                         Qs = Req:parse_qs(),
                         Id = proplists:get_value("uid",Qs,""),
                         Content = proplists:get_value("content",Qs,""),
-                        %another check request validation, maybe just check the source ip
-                     %%   Ip = Req:get(peer),
-                    %%   case auth_util:check_ip(Ip) of
-                    %%       true  ->
-                            %%  case forward_protocol:process(message,Qs) of
-                            %%      {ok,Reply}  ->
-                                       %%rpc:call(node(pg2:get_closest_pid(erouter)),ecomet_router, send,[list_to_integer(Appid),list_to_integer(Id),Reply]),
-                                       Message = #message{channel = list_to_binary(Appid),content=list_to_binary(Content)},
-                                       recomet:send(list_to_integer(Appid),list_to_integer(Id),1,Message) ,
-                                       Json=mochijson2:encode({struct, [{result,0}]}),
-                                       okJson(Req,Json);
-                                 %%  _ ->
-                                  %%     Json=mochijson2:encode({struct, [{result,-1},{msg,<<"">>}]}),
-                                  %%     okJson(Req,Json)
-                               %%end;
-                    %%       false   ->
-                    %%           Json=mochijson2:encode({struct, [{result,-4},{msg,<<"ip not allowed">>}]}),
-                    %%           okJson(Req,Json)
-                    %%   end;
+                        Message = #message{channel = list_to_binary(Channel),content=list_to_binary(Content)},
+                        recomet:send(list_to_integer(Channel),list_to_integer(Id),1,Message) ,
+                        Json=mochijson2:encode({struct, [{result,0}]}),
+                        okJson(Req,Json);
                     _ ->
                         error_logger:info_msg("DocRoot ~p\n", [DocRoot]),
                         Req:serve_file(Path, DocRoot)
@@ -118,7 +105,7 @@ loop(Req, DocRoot,Keepalive) ->
                          "request failed, sorry\n"})
     end.
 
-resume(Req, Id, Reentry,TimerRef,Fsm) ->
+resume(Req, _Id, Reentry,TimerRef,Fsm) ->
     error_logger:info_msg("resume/4"),
     receive
         {recomet_message, Msg} ->
@@ -136,10 +123,10 @@ resume(Req, Id, Reentry,TimerRef,Fsm) ->
             erlang:cancel_timer(TimerRef),
             error_logger:info_msg("recomet_messages Msgs  ~p~n", [Msgs]),
             okMessage(Req,Msgs);
-        {'EXIT',Pid,_} ->
-            error_logger:info_msg("EXIT ~p~n", [Pid]),
-            rpc:call(node(pg2:get_closest_pid(erouter)),ecomet_router, login,[1,1,list_to_integer(Id),self(),true]),
-            ok;
+     %%  {'EXIT',Pid,_} ->
+     %%      error_logger:info_msg("EXIT ~p~n", [Pid]),
+     %%      rpc:call(node(pg2:get_closest_pid(erouter)),ecomet_router, login,[1,1,list_to_integer(Id),self(),true]),
+     %%%%     ok;
         {timeout, _Pid, Msg} ->
             error_logger:info_msg("Timeout msg ~p~n", [Msg]),
             erlang:cancel_timer(TimerRef),
