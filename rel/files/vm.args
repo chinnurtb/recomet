@@ -13,6 +13,7 @@
 +A 5
 
 -P 134217727
++P 1000000
 ## Increase number of concurrent ports/sockets
 #-env ERL_MAX_PORTS 4096
 
