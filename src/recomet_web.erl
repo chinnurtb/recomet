@@ -137,7 +137,7 @@ resume(Req, _Id, Reentry,TimerRef,Fsm) ->
         Msg ->
             error_logger:info_msg("uncatch msg ~p~n", [Msg]),
             erlang:cancel_timer(TimerRef),
-            Text = iolib:format("~w", [Msg]),
+            Text = io_lib:format("~w", [Msg]),
             Json=mochijson2:encode([{struct, [{type,ping},{msg,Text}]}]),
             ok(Req, Json)
     end,
