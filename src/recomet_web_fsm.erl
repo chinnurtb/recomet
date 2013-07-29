@@ -117,20 +117,20 @@ loop(timeout, State) ->
     {next_state, loop, State1,?FSM_WAIT_TIME};
 
 
-loop(Event, State) ->
+loop(_Event, State) ->
     {next_state, loop, State,?FSM_WAIT_TIME}.
 
 
 handle_event(stop, _StateName, StateData) ->
     {stop, normal, StateData};
 
-handle_event(Event, StateName, State) ->
+handle_event(_Event, StateName, State) ->
     {next_state, StateName, State}.
 
 code_change(_OldVsn, StateName, State, _Extra) ->
     {ok, StateName, State}.
 
-handle_sync_event(Event, _From, StateName, State) ->
+handle_sync_event(_Event, _From, StateName, State) ->
     Reply = ok,
     {reply, Reply, StateName, State}.
 
