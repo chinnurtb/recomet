@@ -23,7 +23,8 @@
         message     :: #message{}    ,
         tick=0      :: integer()    ,
         params      :: [integer(),...],
-        start       :: integer()
+        start       :: integer(),
+        fsm_ets     :: any()
     }).
 
 

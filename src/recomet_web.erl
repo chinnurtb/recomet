@@ -6,7 +6,7 @@
 -module(recomet_web).
 -author("zhangjiayin <zhangjiayin99@gmail.com>").
 
--export([start/0, stop/0,  loop/3]).
+-export([start/0, stop/0,  loop/4]).
 
 -export([resume/5 ]).
 
@@ -18,18 +18,20 @@ start() ->
     {ok,DocRoot} = application:get_env(docroot),
     {ok,Options} = application:get_env(server_config),
 
-    ets:new(?WEBFSMTABLE, [public, set, named_table]),
+    FsmEts = ets:new(?WEBFSMTABLE, [public, set, named_table]),
+
+    io:format("~w", [FsmEts]),
 
     process_flag(trap_exit,true),
     Loop = fun (Req) ->
-                   ?MODULE:loop(Req, DocRoot,nonekeepalive)
+                   ?MODULE:loop(Req, DocRoot,nonekeepalive,FsmEts)
            end,
         mochiweb_http:start([{max,1000000},{name, ?MODULE}, {loop, Loop} | Options]).
 
 stop() ->
     mochiweb_http:stop(?MODULE).
 
-loop(Req, DocRoot,Keepalive) ->
+loop(Req, DocRoot,Keepalive,FsmEts) ->
     error_logger:info_msg("keepalive ~w\n", [Keepalive]),
     process_flag(trap_exit, true),
     "/" ++ Path = Req:get(path),
@@ -40,7 +42,7 @@ loop(Req, DocRoot,Keepalive) ->
                     "longpoll/" ++ Channel     ->
                         Qs = Req:parse_qs(),
                         Id = proplists:get_value("uid",Qs,""),
-                        Fsm = get_web_fsm(self()),
+                        Fsm = get_web_fsm(FsmEts, self()),
                         case Keepalive of
                             nonekeepalive->
                                 recomet_web_fsm:login(Fsm,list_to_integer(Channel),list_to_integer(Id),1);
@@ -48,7 +50,7 @@ loop(Req, DocRoot,Keepalive) ->
                                 ok
                         end,
                         TimerRef = erlang:start_timer(?WEB_WAIT_TIME,self(), "ping"),
-                        Reentry = mochiweb_http:reentry({?MODULE, loop,[DocRoot,keepalive]}),
+                        Reentry = mochiweb_http:reentry({?MODULE, loop,[DocRoot,keepalive,FsmEts]}),
                         recomet_web_fsm:waiting_msg(Fsm),
                         proc_lib:hibernate(?MODULE, resume, [Req,Id, Reentry, TimerRef,Fsm]);
 
@@ -75,7 +77,7 @@ loop(Req, DocRoot,Keepalive) ->
             'POST' ->
                 case Path of
                     "longpoll/" ++ Channel ->
-                        Fsm = get_web_fsm(self()),
+                        Fsm = get_web_fsm(FsmEts, self()),
                         Args = Req:parse_post(),
                         Id  = proplists:get_value("uid", Args, ""),
                         %% keepalive 的时候是已经登陆过的了
@@ -87,7 +89,7 @@ loop(Req, DocRoot,Keepalive) ->
                         end,
 
                         TimerRef = erlang:start_timer(?WEB_WAIT_TIME,self(), "ping"),
-                        Reentry = mochiweb_http:reentry({?MODULE, loop,[DocRoot,keepalive]}),
+                        Reentry = mochiweb_http:reentry({?MODULE, loop,[DocRoot,keepalive,FsmEts]}),
 
                         proc_lib:hibernate(?MODULE, resume, [Req,Id, Reentry, TimerRef,Fsm]);
                     _ ->
@@ -164,11 +166,11 @@ ok(Req, Response) ->
             _Headers = [],
             Response}).
 
-get_web_fsm(Pid) ->
-    case ets:lookup(?WEBFSMTABLE, Pid) of
+get_web_fsm(FsmEts , Pid) ->
+    case ets:lookup(FsmEts, Pid) of
         []->
-            {ok,Fsm_pid}= supervisor:start_child(recomet_web_fsm_sup,[self()]),
-            ets:insert(?WEBFSMTABLE,{Pid,Fsm_pid}),
+            {ok,Fsm_pid}= supervisor:start_child(recomet_web_fsm_sup,[self(),FsmEts]),
+            ets:insert(FsmEts,{Pid,Fsm_pid}),
             Fsm_pid;
         [{Pid,Fsm_pid}] ->
             Fsm_pid

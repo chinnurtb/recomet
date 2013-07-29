@@ -5,20 +5,21 @@
 -behavior(gen_fsm).
 
 -export([
-        start_link/1, init/1, loop/2,
+        start_link/2, init/1, loop/2,
         handle_event/3, handle_sync_event/4,
         handle_info/3, terminate/3, code_change/4,
         login/4,waiting_msg/1,waiting_user/1
 
     ]).
 
-start_link(Pid) ->
-    gen_fsm:start_link( ?MODULE, Pid, []).
+start_link(Pid,FsmEts) ->
+    gen_fsm:start_link( ?MODULE, [Pid,FsmEts], []).
 
-init(Pid) ->
+init(Args) ->
+    [Pid,FsmEts] = Args,
     process_flag(trap_exit, true),
     link(Pid),
-    State = #web_state{pid=Pid,type=init,start=get_timestamp()},
+    State = #web_state{pid=Pid,type=init,start=get_timestamp(),fsm_ets=FsmEts},
     {ok, loop, State,?FSM_WAIT_TIME}.
 
 loop(#web_event{type=login,message=_Message,params=Params}=Event, State) ->
@@ -32,7 +33,8 @@ loop(#web_event{type=login,message=_Message,params=Params}=Event, State) ->
         type=Event#web_event.type,
         prev=State#web_state.type,
         params=Params,
-        start=Ctime
+        start=Ctime,
+        fsm_ets=State#web_state.fsm_ets
     },
 
     {next_state, loop, State1,?FSM_WAIT_TIME};
@@ -46,7 +48,8 @@ loop(#web_event{type=waiting_msg,message=_Message,params=_Params}=Event,
         prev=State#web_state.type,
         params=State#web_state.params,
         message=State#web_state.message,
-        start=get_timestamp()
+        start=get_timestamp(),
+        fsm_ets=State#web_state.fsm_ets
     },
     %%it should toke long so hibernate
     proc_lib:hibernate(gen_fsm, enter_loop, [?MODULE, [], loop,State1]);
@@ -60,7 +63,8 @@ loop(#web_event{type=waiting_user,message=_Message,params=_Params}=Event,
         prev=State#web_state.type,
         params=State#web_state.params,
         message=State#web_state.message,
-        start=get_timestamp()
+        start=get_timestamp(),
+        fsm_ets=State#web_state.fsm_ets
     },
 
     {next_state, loop, State1,?FSM_WAIT_TIME};
@@ -73,19 +77,20 @@ loop(#web_event{type=logout,message=_Message,params=_Params}=Event, State) ->
         prev=State#web_state.type,
         params=State#web_state.params,
         message=State#web_state.message,
-        start=get_timestamp()
+        start=get_timestamp(),
+        fsm_ets=State#web_state.fsm_ets
     },
 
     {stop, normal, State1,?FSM_WAIT_TIME};
 
 loop(#web_event{type=message,message=Message,params=_Params}=Event, State) ->
-    io:format("Message recevied ~p \n", [Message]),
     State1 = #web_state{pid=State#web_state.pid,
         type=Event#web_event.type,
         prev=State#web_state.type,
         start=get_timestamp(),
         params=State#web_state.params,
         message=Message,
+        fsm_ets=State#web_state.fsm_ets,
         tick=0},
 
     {next_state, loop, State1,?FSM_WAIT_TIME};
@@ -98,7 +103,8 @@ loop(timeout, State) ->
         start=State#web_state.start,
         message=State#web_state.message,
         params=State#web_state.params,
-        tick=State#web_state.tick+1
+        tick=State#web_state.tick+1,
+        fsm_ets=State#web_state.fsm_ets
     },
 
     case State#web_state.type =:= waiting_user
@@ -112,7 +118,6 @@ loop(timeout, State) ->
 
 
 loop(Event, State) ->
-    io:format("Event ~p, State ~p\n", [Event,State]),
     {next_state, loop, State,?FSM_WAIT_TIME}.
 
 
@@ -120,14 +125,12 @@ handle_event(stop, _StateName, StateData) ->
     {stop, normal, StateData};
 
 handle_event(Event, StateName, State) ->
-    io:format("handle_event ~p ~p\n", [Event,StateName]),
     {next_state, StateName, State}.
 
 code_change(_OldVsn, StateName, State, _Extra) ->
     {ok, StateName, State}.
 
 handle_sync_event(Event, _From, StateName, State) ->
-    io:format("handle_sync_event ~p  ~p\n", [Event,StateName]),
     Reply = ok,
     {reply, Reply, StateName, State}.
 
@@ -143,7 +146,8 @@ handle_info(Info, StateName, State) ->
                 prev=State#web_state.prev,
                 start=get_timestamp(),
                 message=Info,
-                params=State#web_state.params
+                params=State#web_state.params,
+                fsm_ets=State#web_state.fsm_ets
             },
 
             %%State#web_state.pid ! Info,
@@ -159,7 +163,8 @@ handle_info(Info, StateName, State) ->
                 type=login,
                 prev=State#web_state.type,
                 params=Params,
-                start=Ctime
+                start=Ctime,
+                fsm_ets=State#web_state.fsm_ets
             },
 
             {next_state, StateName, State1, ?FSM_WAIT_TIME};
@@ -191,7 +196,7 @@ handle_info(Info, StateName, State) ->
 terminate(Reason, StateName, State) ->
     io:format("\n\n\nterminate ~p ~p ~p\n\n\n", [Reason, StateName, State]),
     [Channel,Uid,Type] =  State#web_state.params,
-    ets:delete(?WEBFSMTABLE,State#web_state.pid),
+    ets:delete(State#web_state.fsm_ets,State#web_state.pid),
     recomet:logout (self(),Channel,Uid,Type),
     ok.
 
