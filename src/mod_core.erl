@@ -48,7 +48,7 @@ handle({send,Channel,Uid,Type,Message}=Command,_From, State,_Res) ->
     Tu = get_table_name("userpid", State#recomet_state.partition),
 
     Pids = [ Pid || [Pid]<- ets:match(Tu,#piduser{pid='$1',channel=Channel,uid=Uid,type=Type,_='_'})],
-    error_logger:info_msg("send to pids     ~p\n ", [Pids]),
+    %%error_logger:info_msg("send to pids     ~p\n ", [Pids]),
     M = {recomet_message, Message},
     [ Pid ! M || Pid <- Pids ],
     {State,Command,{reply,ok,State}};
@@ -56,7 +56,7 @@ handle({send,Channel,Uid,Type,Message}=Command,_From, State,_Res) ->
 handle({is_online,Channel,Uid,Type}=Command,_From, State,_Res) when is_integer (Uid) ->
     Tu = get_table_name("userpid", State#recomet_state.partition),
     Ret = [ {C,U,T} ||  {piduser,_P,U,C,T,_Ct} <- ets:match_object(Tu,#piduser{channel=Channel,uid=Uid,type=Type,_='_'})],
-    error_logger:info_msg("is_online ret is  ~p\n ", [Ret]),
+    %%error_logger:info_msg("is_online ret is  ~p\n ", [Ret]),
     {State,Command,{reply,Ret,State}};
 
 handle({is_online,Channel,Uid,Type}=Command,_From, State,_Res) when is_list (Uid) ->
@@ -78,8 +78,8 @@ handle({logout,Pid,Channel,Uid,Type}=Command,_From, State,_Res) ->
     Tp = get_table_name("piduser", State#recomet_state.partition),
     Tu = get_table_name("userpid", State#recomet_state.partition),
     PidRows = ets:match_object(Tp,#piduser{pid=Pid,channel=Channel,uid=Uid,type=Type,_='_'}),
-    error_logger:info_msg("logout Command~p\n", [Command]),
-    error_logger:info_msg("logout, PidRows~p \n", [PidRows]),
+    %%error_logger:info_msg("logout Command~p\n", [Command]),
+    %%error_logger:info_msg("logout, PidRows~p \n", [PidRows]),
     case PidRows of
         [] ->
             ok;
@@ -153,7 +153,7 @@ iterate_table(T,Fun,Prev,Acc) ->
 
 is_empty(State) ->
     Tp = get_table_name("piduser", State#recomet_state.partition),
-    error_logger:info_msg("~p size is ~p", [Tp,ets:info(Tp,size)]),
+    %%error_logger:info_msg("~p size is ~p", [Tp,ets:info(Tp,size)]),
     {ets:info(Tp,size) =:=0 ,State}.
 
 get_table_name(Pre,P )->

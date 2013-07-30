@@ -32,7 +32,9 @@ stop() ->
     mochiweb_http:stop(?MODULE).
 
 loop(Req, DocRoot,Keepalive,FsmEts) ->
-    error_logger:info_msg("keepalive ~w\n", [Keepalive]),
+    %%error_logger:info_msg("keepalive ~w\n", [Keepalive]),
+    %%182.99.189.174 77831 0.078 [30/Jul/2013:09:00:00 +0800] "GET http://s.etao.com/search.php?q=%CC%A8%B5%F6%C5%E4%BC%FE%CC%D7%D7%B0&v=auction&format=json&tbpm=t&callback=__p4p_etao_sidebar__&n=9&from=tb_main&offset=0&_cat=50023720%252C50023719%252C50023722%252C50023719%252C50023721%252C50023718&cat=50049554&t=1375146001376" 200 1004 "http://s.taobao.com/search?spm=a230r.1.3.4.Eer6zq&initiative_id=tbindexz_20130730&tab=all&q=%CC%A8%B5%F6%C5%E4%BC%FE%CC%D7%D7%B0&source=suggest&suggest=0_1&cps=yes&promote=0&cat=50049554" "Mozilla/5.0 (Windo ws NT 5.1) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.89 Safari/537.1" "-"
+    error_logger:info_msg("access_log ~p\t~p\t~p\t~p\t~p",[Req:get(peer), Req:get(method),Req:get(raw_path),Req:get_header_value("Referer"),Req:get_header_value("User-agent") ]),
     process_flag(trap_exit, true),
     "/" ++ Path = Req:get(path),
     try
@@ -70,7 +72,7 @@ loop(Req, DocRoot,Keepalive,FsmEts) ->
                         Json=mochijson2:encode({struct, [{result,0}]}),
                         okJson(Req,Json);
                     _ ->
-                        error_logger:info_msg("DocRoot ~p\n", [DocRoot]),
+                       %% error_logger:info_msg("DocRoot ~p\n", [DocRoot]),
                         Req:serve_file(Path, DocRoot)
                 end;
 
@@ -104,17 +106,17 @@ loop(Req, DocRoot,Keepalive,FsmEts) ->
                       {path, Path},
                       {type, Type}, {what, What},
                       {trace, erlang:get_stacktrace()}],
-            error_logger:info_msg("error", [Report]),
+            error_logger:error_msg("error ~p", [Report]),
             Req:respond({500, [{"Content-Type", "text/plain"}],
                          "request failed, sorry\n"})
     end.
 
 resume(Req, _Id, Reentry,TimerRef,Fsm) ->
-    error_logger:info_msg("resume/4"),
+    %%error_logger:info_msg("resume/4"),
     receive
         {recomet_message, Msg} ->
             erlang:cancel_timer(TimerRef),
-            error_logger:info_msg("recomet_message Msg  ~p~n", [Msg]),
+            %%error_logger:info_msg("recomet_message Msg  ~p~n", [Msg]),
             case Msg of
                 ping ->
                     Json=mochijson2:encode(Msg),
@@ -125,26 +127,26 @@ resume(Req, _Id, Reentry,TimerRef,Fsm) ->
 
         {recomet_messages, Msgs} ->
             erlang:cancel_timer(TimerRef),
-            error_logger:info_msg("recomet_messages Msgs  ~p~n", [Msgs]),
+            %%error_logger:info_msg("recomet_messages Msgs  ~p~n", [Msgs]),
             okMessage(Req,Msgs);
      %%  {'EXIT',Pid,_} ->
      %%      error_logger:info_msg("EXIT ~p~n", [Pid]),
      %%      rpc:call(node(pg2:get_closest_pid(erouter)),ecomet_router, login,[1,1,list_to_integer(Id),self(),true]),
      %%%%     ok;
         {timeout, _Pid, Msg} ->
-            error_logger:info_msg("Timeout msg ~p~n", [Msg]),
+            %%error_logger:info_msg("Timeout msg ~p~n", [Msg]),
             erlang:cancel_timer(TimerRef),
             Json=mochijson2:encode([{struct, [{type,ping},{msg,list_to_binary(Msg)}]}]),
             okJson(Req, Json);
         Msg ->
-            error_logger:info_msg("uncatch msg ~p~n", [Msg]),
+            %%error_logger:info_msg("uncatch msg ~p~n", [Msg]),
             erlang:cancel_timer(TimerRef),
             Text = io_lib:format("~w", [Msg]),
             Json=mochijson2:encode([{struct, [{type,ping},{msg,Text}]}]),
             ok(Req, Json)
     end,
 
-    error_logger:info_msg("reentering loop via continuation in ~p~n", [Req:get(path)]),
+    %%error_logger:info_msg("reentering loop via continuation in ~p~n", [Req:get(path)]),
     recomet_web_fsm:waiting_user(Fsm),
     Reentry(Req).
 
