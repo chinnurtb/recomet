@@ -20,9 +20,7 @@ start() ->
 
     FsmEts = ets:new(?WEBFSMTABLE, [public, set, named_table]),
 
-    io:format("~w", [FsmEts]),
-
-    process_flag(trap_exit,true),
+    %%process_flag(trap_exit,true),
     Loop = fun (Req) ->
                    ?MODULE:loop(Req, DocRoot,nonekeepalive,FsmEts)
            end,
@@ -35,7 +33,7 @@ loop(Req, DocRoot,Keepalive,FsmEts) ->
     %%error_logger:info_msg("keepalive ~w\n", [Keepalive]),
     %%182.99.189.174 77831 0.078 [30/Jul/2013:09:00:00 +0800] "GET http://s.etao.com/search.php?q=%CC%A8%B5%F6%C5%E4%BC%FE%CC%D7%D7%B0&v=auction&format=json&tbpm=t&callback=__p4p_etao_sidebar__&n=9&from=tb_main&offset=0&_cat=50023720%252C50023719%252C50023722%252C50023719%252C50023721%252C50023718&cat=50049554&t=1375146001376" 200 1004 "http://s.taobao.com/search?spm=a230r.1.3.4.Eer6zq&initiative_id=tbindexz_20130730&tab=all&q=%CC%A8%B5%F6%C5%E4%BC%FE%CC%D7%D7%B0&source=suggest&suggest=0_1&cps=yes&promote=0&cat=50049554" "Mozilla/5.0 (Windo ws NT 5.1) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1180.89 Safari/537.1" "-"
     error_logger:info_msg("access_log ~p\t~p\t~p\t~p\t~p",[Req:get(peer), Req:get(method),Req:get(raw_path),Req:get_header_value("Referer"),Req:get_header_value("User-agent") ]),
-    process_flag(trap_exit, true),
+    %%process_flag(trap_exit, true),
     "/" ++ Path = Req:get(path),
     try
         case Req:get(method) of

@@ -193,8 +193,8 @@ handle_info(Info, StateName, State) ->
 
 
 
-terminate(Reason, StateName, State) ->
-    io:format("\n\n\nterminate ~p ~p ~p\n\n\n", [Reason, StateName, State]),
+terminate(_Reason, _StateName, State) ->
+    %%:format("\n\n\nterminate ~p ~p ~p\n\n\n", [Reason, StateName, State]),
     [Channel,Uid,Type] =  State#web_state.params,
     ets:delete(State#web_state.fsm_ets,State#web_state.pid),
     recomet:logout (self(),Channel,Uid,Type),
