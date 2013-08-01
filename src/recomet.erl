@@ -14,15 +14,15 @@ ping() ->
     DocIdx = riak_core_util:chash_key({<<"ping">>, term_to_binary(now())}),
     PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, recomet),
     [{IndexNode, _Type}] = PrefList,
-    riak_core_vnode_master:sync_command(IndexNode, ping, recomet_vnode_master,500).
+    riak_core_vnode_master:sync_spawn_command(IndexNode, ping, recomet_vnode_master).
 
 
 logout (Pid,Channel,Uid,Type) ->
-    riak_core_vnode_master:sync_command(get_pri_node(Channel,Uid), {logout, Pid,Channel,Uid,Type}, recomet_vnode_master,500),
+    riak_core_vnode_master:sync_spawn_command(get_pri_node(Channel,Uid), {logout, Pid,Channel,Uid,Type}, recomet_vnode_master),
     ok.
 
 send (Channel,Uid,Type,Message) ->
-    riak_core_vnode_master:sync_command(get_pri_node(Channel,Uid), {send, Channel,Uid,Type,Message}, recomet_vnode_master,500),
+    riak_core_vnode_master:sync_spawn_command(get_pri_node(Channel,Uid), {send, Channel,Uid,Type,Message}, recomet_vnode_master),
     ok.
 
 is_online(Channel,Uid1,Type) when is_list(Uid1)->
@@ -30,16 +30,16 @@ is_online(Channel,Uid1,Type) when is_list(Uid1)->
     Nodes = get_pri_nodes(Channel,Uid,[]),
     io:format("Nodes is ~p\n",[Nodes]),
     lists:foldl(fun({Node,Uids},List)->
-        OnlineList = riak_core_vnode_master:sync_command(Node, {is_online, Channel,Uids,Type}, recomet_vnode_master,500),
+        OnlineList = riak_core_vnode_master:sync_spawn_command(Node, {is_online, Channel,Uids,Type}, recomet_vnode_master),
         lists:merge(OnlineList,List)
     end, [],Nodes);
 
 is_online(Channel,Uid,Type ) when is_integer(Uid) ->
-    riak_core_vnode_master:sync_command(get_pri_node(Channel,Uid), {is_online, Channel,Uid,Type}, recomet_vnode_master,500).
+    riak_core_vnode_master:sync_spawn_command(get_pri_node(Channel,Uid), {is_online, Channel,Uid,Type}, recomet_vnode_master).
 
 login (Pid,Channel,Uid,Type,Ctime) ->
      IndexNode = get_pri_node(Channel,Uid),
-    riak_core_vnode_master:sync_command(IndexNode, {login, Pid,Channel,Uid,Type, Ctime}, recomet_vnode_master,500),
+    riak_core_vnode_master:sync_spawn_command(IndexNode, {login, Pid,Channel,Uid,Type, Ctime}, recomet_vnode_master),
     ok.
 
 get_pri_nodes(_Channel,[],Res) ->
