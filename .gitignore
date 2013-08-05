@@ -7,4 +7,5 @@ rel/recomet/
 
 src/.mod_core.erl.swp
 
+*.swo
 *.swp

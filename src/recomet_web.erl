@@ -43,16 +43,28 @@ loop(Req, DocRoot,Keepalive,FsmEts) ->
                         Qs = Req:parse_qs(),
                         Id = proplists:get_value("uid",Qs,""),
                         Fsm = get_web_fsm(FsmEts, self()),
-                        case Keepalive of
-                            nonekeepalive->
-                                recomet_web_fsm:login(Fsm,list_to_integer(Channel),list_to_integer(Id),1);
-                            _   ->
-                                ok
-                        end,
-                        TimerRef = erlang:start_timer(?WEB_WAIT_TIME,self(), "ping"),
-                        Reentry = mochiweb_http:reentry({?MODULE, loop,[DocRoot,keepalive,FsmEts]}),
-                        recomet_web_fsm:waiting_msg(Fsm),
-                        proc_lib:hibernate(?MODULE, resume, [Req,Id, Reentry, TimerRef,Fsm]);
+                        Timestamp = proplists:get_value("timestamp", Qs, ""),
+                        Sign  = proplists:get_value("sign", Qs, ""),
+                        %check the request validation
+                        case auth_util:check_sign(Channel,Id,Timestamp,Sign) of
+                             ok  ->
+                                 case Keepalive of
+                                     nonekeepalive->
+                                         recomet_web_fsm:login(Fsm,list_to_integer(Channel),list_to_integer(Id),1);
+                                     _   ->
+                                         ok
+                                 end,
+                                 TimerRef = erlang:start_timer(?WEB_WAIT_TIME,self(), "ping"),
+                                 Reentry = mochiweb_http:reentry({?MODULE, loop,[DocRoot,keepalive,FsmEts]}),
+                                 recomet_web_fsm:waiting_msg(Fsm),
+                                 proc_lib:hibernate(?MODULE, resume, [Req,Id, Reentry, TimerRef,Fsm]);
+                             timeout ->
+                                Json=mochijson2:encode({struct, [{result,-2},{msg,<<"token expired">>}]}),
+                                okJson(Req,Json);
+                             error   ->
+                                Json=mochijson2:encode({struct, [{result,-1},{msg,<<"invalid signature">>}]}),
+                                okJson(Req,Json)
+                        end;
 
                     "healthy/"           ->
                         StatList = get_basic_statistics()
@@ -64,11 +76,19 @@ loop(Req, DocRoot,Keepalive,FsmEts) ->
                         %just for a test protocol implement
                         Qs = Req:parse_qs(),
                         Id = proplists:get_value("uid",Qs,""),
-                        Content = proplists:get_value("content",Qs,""),
-                        Message = #message{channel = list_to_binary(Channel),content=list_to_binary(Content)},
-                        recomet:send(list_to_integer(Channel),list_to_integer(Id),1,Message) ,
-                        Json=mochijson2:encode({struct, [{result,0}]}),
-                        okJson(Req,Json);
+                        %another check request validation, maybe just check the source ip
+                        Ip = Req:get(peer),
+                        case auth_util:check_ip(Ip) of
+                            true  ->
+                                Content = proplists:get_value("content",Qs,""),
+                                Message = #message{channel = list_to_binary(Channel),content=list_to_binary(Content)},
+                                recomet:send(list_to_integer(Channel),list_to_integer(Id),1,Message) ,
+                                Json=mochijson2:encode({struct, [{result,0}]}),
+                                okJson(Req,Json);
+                            false   ->
+                                Json=mochijson2:encode({struct, [{result,-4},{msg,<<"ip not allowed">>}]}),
+                                okJson(Req,Json)
+                        end;
                     _ ->
                        %% error_logger:info_msg("DocRoot ~p\n", [DocRoot]),
                         Req:serve_file(Path, DocRoot)
